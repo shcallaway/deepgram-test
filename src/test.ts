@@ -8,8 +8,8 @@ import { Deepgram } from "@deepgram/sdk";
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || "";
 
 // Deepgram streaming options
-const ENDPOINTING = true;
-const ENDPOINT_SILENCE_MS = 10;
+const ENDPOINTING = true; // Note: it is still possible to get speech_final=false with endpointing set to true
+const ENDPOINT_SILENCE_MS = 500; // A smaller value should result in more combined transcripts
 const INTERIM_RESULTS = false; // This really just enables/disables partial results (is_final=false)
 
 // It is not recommended to modify these values unless you want to use a different audio file
@@ -17,7 +17,7 @@ const AUDIO_FILE = "mulaw-8bit-8khz.wav";
 const AUDIO_FILE_SAMPLE_RATE = 8000;
 const AUDIO_FILE_BIT_RATE = "8m";
 const AUDIO_FILE_ENCODING = "mulaw";
-const CHUNK_BYTES = 200;
+const CHUNK_BYTES = 160;
 
 const createChunks = (buffer: Buffer, chunkBytes: number) => {
   const chunks = [];
@@ -69,6 +69,9 @@ const main = async () => {
   let startTime: number | undefined;
   let count = 0;
 
+  // Use this to keep track of transcripts in between endpoints
+  let speechFinalResultTexts: string[] = [];
+
   transcriber.addListener("transcriptReceived", (message: any) => {
     // Immediately capture the current time so that nothing else impacts the duration calculation
     const currTime = Date.now();
@@ -88,6 +91,20 @@ const main = async () => {
     };
 
     console.log("Result", result);
+
+    // Add current transcript to speechFinalResultTexts
+    speechFinalResultTexts.push(
+      parsedMessage.channel.alternatives[0].transcript,
+    );
+
+    // If result is an endpoint, combine previous transcripts and reset speechFinalResultTexts
+    if (parsedMessage.speech_final === true) {
+      console.log(
+        "Combined transcript",
+        `"${speechFinalResultTexts.join(" ").trim()}"`,
+      );
+      speechFinalResultTexts = [];
+    }
 
     count += 1;
   });
@@ -126,7 +143,7 @@ const main = async () => {
   // Send chunks
   for (let i = 0; i < chunks.length; i += 1) {
     transcriber.send(chunks[i]);
-    await resolveAfter(25);
+    await resolveAfter(20);
   }
 
   // Wait a bit so that we get all Deepgram transcripts
