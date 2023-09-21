@@ -13,7 +13,7 @@ const ENDPOINT_SILENCE_MS = 500;
 const INTERIM_RESULTS = false; // This really just enables/disables partial results (is_final=false)
 
 // It is not recommended to modify these values unless you want to use a different audio file
-const AUDIO_FILE = "test-audio-1-mulaw-8bit-8khz.wav";
+const AUDIO_FILE = "mulaw-8bit-8khz.wav";
 const AUDIO_FILE_SAMPLE_RATE = 8000;
 const AUDIO_FILE_BIT_RATE = "8m";
 const AUDIO_FILE_ENCODING = "mulaw";
