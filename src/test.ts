@@ -9,7 +9,7 @@ const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || "";
 
 // Deepgram streaming options
 const ENDPOINTING = true;
-const ENDPOINT_SILENCE_MS = 500;
+const ENDPOINT_SILENCE_MS = 10;
 const INTERIM_RESULTS = false; // This really just enables/disables partial results (is_final=false)
 
 // It is not recommended to modify these values unless you want to use a different audio file
@@ -70,6 +70,7 @@ const main = async () => {
   let count = 0;
 
   transcriber.addListener("transcriptReceived", (message: any) => {
+    // Immediately capture the current time so that nothing else impacts the duration calculation
     const currTime = Date.now();
 
     const parsedMessage = JSON.parse(message);
