@@ -8,16 +8,18 @@ import { Deepgram } from "@deepgram/sdk";
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || "";
 
 // Deepgram streaming options
-const ENDPOINTING = true;
-const ENDPOINT_SILENCE_MS = 10;
-const INTERIM_RESULTS = false; // This really just enables/disables partial results (is_final=false)
+const ENDPOINTING = true; // Note: it is still possible to get resutls with speech_final=false when endpointing is set to true
+const ENDPOINT_SILENCE_MS = 500; // A smaller value should result in a greater number of combined transcripts
+const INTERIM_RESULTS = false; // This setting really just enables/disables partial results (is_final=false)
 
 // It is not recommended to modify these values unless you want to use a different audio file
-const AUDIO_FILE = "mulaw-8bit-8khz.wav";
+const AUDIO_FILE = "mono-mulaw-8bit-8khz.wav";
 const AUDIO_FILE_SAMPLE_RATE = 8000;
 const AUDIO_FILE_BIT_RATE = "8m";
 const AUDIO_FILE_ENCODING = "mulaw";
-const CHUNK_BYTES = 200;
+const AUDIO_FILE_CHANNELS = 1;
+const CHUNK_BYTES = 160; // 160 is the correct number of bytes in 20ms of audio for an audio file w/ the characteristics above
+const CHUNK_INTERVAL_MS = 20;
 
 const createChunks = (buffer: Buffer, chunkBytes: number) => {
   const chunks = [];
@@ -53,6 +55,7 @@ const main = async () => {
     interim_results: INTERIM_RESULTS,
     encoding: AUDIO_FILE_ENCODING,
     sample_rate: AUDIO_FILE_SAMPLE_RATE,
+    channels: AUDIO_FILE_CHANNELS,
     endpointing: ENDPOINTING ? ENDPOINT_SILENCE_MS : false,
     // Don't change these
     smart_format: true,
@@ -68,6 +71,9 @@ const main = async () => {
 
   let startTime: number | undefined;
   let count = 0;
+
+  // Use this to keep track of transcripts in between endpoints
+  let speechFinalResultTexts: string[] = [];
 
   transcriber.addListener("transcriptReceived", (message: any) => {
     // Immediately capture the current time so that nothing else impacts the duration calculation
@@ -88,6 +94,20 @@ const main = async () => {
     };
 
     console.log("Result", result);
+
+    // Add current transcript to speechFinalResultTexts
+    speechFinalResultTexts.push(
+      parsedMessage.channel.alternatives[0].transcript,
+    );
+
+    // If result is an endpoint, combine previous transcripts and reset speechFinalResultTexts
+    if (parsedMessage.speech_final === true) {
+      console.log(
+        "Combined transcript",
+        `"${speechFinalResultTexts.join(" ").trim()}"`,
+      );
+      speechFinalResultTexts = [];
+    }
 
     count += 1;
   });
@@ -126,7 +146,7 @@ const main = async () => {
   // Send chunks
   for (let i = 0; i < chunks.length; i += 1) {
     transcriber.send(chunks[i]);
-    await resolveAfter(25);
+    await resolveAfter(CHUNK_INTERVAL_MS);
   }
 
   // Wait a bit so that we get all Deepgram transcripts
