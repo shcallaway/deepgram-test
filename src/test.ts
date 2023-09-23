@@ -63,6 +63,7 @@ const main = async () => {
     language: "en-US",
     tier: "nova",
     model: "phonecall",
+    no_delay: true
   });
 
   transcriber.addListener("close", () => {
